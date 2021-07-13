@@ -1,7 +1,7 @@
 ﻿################################################################################
 # Set minimum required version of cmake, project name and compile options
 ################################################################################
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.2)
 project(open_manipulator_controller)
 
 add_compile_options(-std=c++11)
@@ -9,19 +9,16 @@ add_compile_options(-std=c++11)
 ################################################################################
 # Find catkin packages and libraries for catkin and system dependencies
 ################################################################################
-find_package(catkin REQUIRED COMPONENTS
+find_package(catkin REQUIRED
+  COMPONENTS
     roscpp
     std_msgs
     sensor_msgs
     geometry_msgs
-    moveit_msgs
     trajectory_msgs
     open_manipulator_msgs
     robotis_manipulator
     open_manipulator_libs
-    moveit_core
-    moveit_ros_planning
-    moveit_ros_planning_interface
     cmake_modules
 )
 find_package(Boost REQUIRED)
@@ -43,7 +40,16 @@ find_package(Boost REQUIRED)
 ################################################################################
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp std_msgs sensor_msgs geometry_msgs moveit_msgs trajectory_msgs open_manipulator_msgs robotis_manipulator open_manipulator_libs moveit_core moveit_ros_planning  moveit_ros_planning_interface cmake_modules
+  CATKIN_DEPENDS
+    roscpp
+    std_msgs
+    sensor_msgs
+    geometry_msgs
+    trajectory_msgs
+    open_manipulator_msgs
+    robotis_manipulator
+    open_manipulator_libs
+    cmake_modules
   DEPENDS Boost
 )
 
