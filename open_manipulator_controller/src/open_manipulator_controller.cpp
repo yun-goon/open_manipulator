@@ -1,4 +1,4 @@
-﻿/*******************************************************************************
+/*******************************************************************************
 * Copyright 2018 ROBOTIS CO., LTD.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,32 +58,6 @@ OpenManipulatorController::~OpenManipulatorController()
 
 void OpenManipulatorController::startTimerThread()
 {
-  ////////////////////////////////////////////////////////////////////
-  /// Use this when you want to increase the priority of threads.
-  ////////////////////////////////////////////////////////////////////
-  //  pthread_attr_t attr_;
-  //  int error;
-  //  struct sched_param param;
-  //  pthread_attr_init(&attr_);
-
-  //  error = pthread_attr_setschedpolicy(&attr_, SCHED_RR);
-  //  if (error != 0)   log::error("pthread_attr_setschedpolicy error = ", (double)error);
-  //  error = pthread_attr_setinheritsched(&attr_, PTHREAD_EXPLICIT_SCHED);
-  //  if (error != 0)   log::error("pthread_attr_setinheritsched error = ", (double)error);
-
-  //  memset(&param, 0, sizeof(param));
-  //  param.sched_priority = 31;    // RT
-  //  error = pthread_attr_setschedparam(&attr_, &param);
-  //  if (error != 0)   log::error("pthread_attr_setschedparam error = ", (double)error);
-
-  //  if ((error = pthread_create(&this->timer_thread_, &attr_, this->timerThread, this)) != 0)
-  //  {
-  //    log::error("Creating timer thread failed!!", (double)error);
-  //    exit(-1);
-  //  }
-  // timer_thread_state_ = true;
-  ////////////////////////////////////////////////////////////////////
-
   int error;
   if ((error = pthread_create(&this->timer_thread_, NULL, this->timerThread, this)) != 0)
   {
@@ -110,17 +84,14 @@ void *OpenManipulatorController::timerThread(void *param)
     controller->process(time);
 
     clock_gettime(CLOCK_MONOTONIC, &curr_time);
-    /////
     double delta_nsec = controller->getControlPeriod() - ((next_time.tv_sec - curr_time.tv_sec) + ((double)(next_time.tv_nsec - curr_time.tv_nsec)*0.000000001));
-    //log::info("control time : ", controller->getControlPeriod() - delta_nsec);
+
     if (delta_nsec > controller->getControlPeriod())
     {
-      //log::warn("Over the control time : ", delta_nsec);
       next_time = curr_time;
     }
     else
       clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
-    /////
   }
   return 0;
 }
@@ -130,7 +101,7 @@ void *OpenManipulatorController::timerThread(void *param)
 ********************************************************************************/
 void OpenManipulatorController::initPublisher()
 {
-  // ros message publisher
+  // ROS message publisher
   auto om_tools_name = open_manipulator_.getManipulator()->getAllToolComponentName();
 
   for (auto const& name:om_tools_name)
@@ -159,9 +130,10 @@ void OpenManipulatorController::initPublisher()
     }
   }
 }
+
 void OpenManipulatorController::initSubscriber()
 {
-  // ros message subscriber
+  // ROS message subscriber
   open_manipulator_option_sub_ = node_handle_.subscribe("option", 10, &OpenManipulatorController::openManipulatorOptionCallback, this);
 }
 
@@ -202,6 +174,14 @@ void OpenManipulatorController::openManipulatorOptionCallback(const std_msgs::St
 bool OpenManipulatorController::goalJointSpacePathCallback(open_manipulator_msgs::SetJointPosition::Request  &req,
                                                            open_manipulator_msgs::SetJointPosition::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   std::vector <double> target_angle;
 
   for (int i = 0; i < req.joint_position.joint_name.size(); i ++)
@@ -218,6 +198,14 @@ bool OpenManipulatorController::goalJointSpacePathCallback(open_manipulator_msgs
 bool OpenManipulatorController::goalJointSpacePathToKinematicsPoseCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                            open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   KinematicPose target_pose;
   target_pose.position[0] = req.kinematics_pose.pose.position.x;
   target_pose.position[1] = req.kinematics_pose.pose.position.y;
@@ -241,6 +229,14 @@ bool OpenManipulatorController::goalJointSpacePathToKinematicsPoseCallback(open_
 bool OpenManipulatorController::goalJointSpacePathToKinematicsPositionCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                                open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   KinematicPose target_pose;
   target_pose.position[0] = req.kinematics_pose.pose.position.x;
   target_pose.position[1] = req.kinematics_pose.pose.position.y;
@@ -257,6 +253,14 @@ bool OpenManipulatorController::goalJointSpacePathToKinematicsPositionCallback(o
 bool OpenManipulatorController::goalJointSpacePathToKinematicsOrientationCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                                   open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   KinematicPose target_pose;
 
   Eigen::Quaterniond q(req.kinematics_pose.pose.orientation.w,
@@ -270,12 +274,21 @@ bool OpenManipulatorController::goalJointSpacePathToKinematicsOrientationCallbac
     res.is_planned = false;
   else
     res.is_planned = true;
+
   return true;
 }
 
 bool OpenManipulatorController::goalTaskSpacePathCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                           open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   KinematicPose target_pose;
   target_pose.position[0] = req.kinematics_pose.pose.position.x;
   target_pose.position[1] = req.kinematics_pose.pose.position.y;
@@ -298,6 +311,14 @@ bool OpenManipulatorController::goalTaskSpacePathCallback(open_manipulator_msgs:
 bool OpenManipulatorController::goalTaskSpacePathPositionOnlyCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                       open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   Eigen::Vector3d position;
   position[0] = req.kinematics_pose.pose.position.x;
   position[1] = req.kinematics_pose.pose.position.y;
@@ -314,6 +335,14 @@ bool OpenManipulatorController::goalTaskSpacePathPositionOnlyCallback(open_manip
 bool OpenManipulatorController::goalTaskSpacePathOrientationOnlyCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                          open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   Eigen::Quaterniond q(req.kinematics_pose.pose.orientation.w,
                        req.kinematics_pose.pose.orientation.x,
                        req.kinematics_pose.pose.orientation.y,
@@ -332,6 +361,14 @@ bool OpenManipulatorController::goalTaskSpacePathOrientationOnlyCallback(open_ma
 bool OpenManipulatorController::goalJointSpacePathFromPresentCallback(open_manipulator_msgs::SetJointPosition::Request  &req,
                                                                       open_manipulator_msgs::SetJointPosition::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   std::vector <double> target_angle;
 
   for (int i = 0; i < req.joint_position.joint_name.size(); i ++)
@@ -348,6 +385,14 @@ bool OpenManipulatorController::goalJointSpacePathFromPresentCallback(open_manip
 bool OpenManipulatorController::goalTaskSpacePathFromPresentCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                      open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   KinematicPose target_pose;
   target_pose.position[0] = req.kinematics_pose.pose.position.x;
   target_pose.position[1] = req.kinematics_pose.pose.position.y;
@@ -371,6 +416,14 @@ bool OpenManipulatorController::goalTaskSpacePathFromPresentCallback(open_manipu
 bool OpenManipulatorController::goalTaskSpacePathFromPresentPositionOnlyCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                                  open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   Eigen::Vector3d position;
   position[0] = req.kinematics_pose.pose.position.x;
   position[1] = req.kinematics_pose.pose.position.y;
@@ -387,6 +440,14 @@ bool OpenManipulatorController::goalTaskSpacePathFromPresentPositionOnlyCallback
 bool OpenManipulatorController::goalTaskSpacePathFromPresentOrientationOnlyCallback(open_manipulator_msgs::SetKinematicsPose::Request  &req,
                                                                                     open_manipulator_msgs::SetKinematicsPose::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   Eigen::Quaterniond q(req.kinematics_pose.pose.orientation.w,
                         req.kinematics_pose.pose.orientation.x,
                         req.kinematics_pose.pose.orientation.y,
@@ -405,6 +466,14 @@ bool OpenManipulatorController::goalTaskSpacePathFromPresentOrientationOnlyCallb
 bool OpenManipulatorController::goalToolControlCallback(open_manipulator_msgs::SetJointPosition::Request  &req,
                                                         open_manipulator_msgs::SetJointPosition::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   for (int i = 0; i < req.joint_position.joint_name.size(); i ++)
   {
     if (!open_manipulator_.makeToolTrajectory(req.joint_position.joint_name.at(i), req.joint_position.position.at(i)))
@@ -444,6 +513,14 @@ bool OpenManipulatorController::setActuatorStateCallback(open_manipulator_msgs::
 bool OpenManipulatorController::goalDrawingTrajectoryCallback(open_manipulator_msgs::SetDrawingTrajectory::Request  &req,
                                                               open_manipulator_msgs::SetDrawingTrajectory::Response &res)
 {
+  // Ignore commands if the robot is moving
+  if (open_manipulator_.getMovingState())
+  {
+    log::warn("Robot is moving. Ignoring command.");
+    res.is_planned = false;
+    return true;
+  }
+
   try
   {
     if (req.drawing_trajectory_name == "circle")
@@ -466,7 +543,7 @@ bool OpenManipulatorController::goalDrawingTrajectoryCallback(open_manipulator_m
       draw_line_arg.kinematic.position(1) = req.param[1]; // y axis (m)
       draw_line_arg.kinematic.position(2) = req.param[2]; // z axis (m)
       void *p_draw_line_arg = &draw_line_arg;
-      
+
       if (!open_manipulator_.makeCustomTrajectory(CUSTOM_TRAJECTORY_LINE, req.end_effector_name, p_draw_line_arg, req.path_time))
         res.is_planned = false;
       else
@@ -626,14 +703,14 @@ void OpenManipulatorController::publishGazeboCommand()
 *****************************************************************************/
 int main(int argc, char **argv)
 {
-  // init
+  // Init ROS
   ros::init(argc, argv, "open_manipulator_controller");
   ros::NodeHandle node_handle("");
 
   std::string usb_port = "/dev/ttyUSB0";
   std::string baud_rate = "1000000";
 
-  if (argc = 3)
+  if (argc == 3)
   {
     usb_port = argv[1];
     baud_rate = argv[2];
@@ -647,9 +724,13 @@ int main(int argc, char **argv)
 
   OpenManipulatorController om_controller(usb_port, baud_rate);
 
-  // update
+  // Start the timer thread
   om_controller.startTimerThread();
+
+  // Set up a periodic publishing timer
   ros::Timer publish_timer = node_handle.createTimer(ros::Duration(om_controller.getControlPeriod()), &OpenManipulatorController::publishCallback, &om_controller);
+
+  // Run the loop
   ros::Rate loop_rate(100);
   while (ros::ok())
   {
@@ -659,3 +740,4 @@ int main(int argc, char **argv)
 
   return 0;
 }
+
