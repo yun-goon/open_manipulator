@@ -17,7 +17,8 @@ find_package(control_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(rclcpp_action REQUIRED)
-
+find_package(moveit_msgs REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
 add_executable(open_manipulator_x_teleop src/open_manipulator_x_teleop.cpp)
 target_include_directories(open_manipulator_x_teleop PUBLIC
@@ -37,7 +38,30 @@ ament_target_dependencies(
   "rclcpp_action"
 )
 
+add_executable(open_manipulator_x_joystick src/open_manipulator_x_joystick.cpp)
+target_include_directories(open_manipulator_x_joystick PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+ament_target_dependencies(
+  open_manipulator_x_joystick
+  "rclcpp"
+  "open_manipulator_x_bringup"
+  "open_manipulator_x_moveit_config"
+  "open_manipulator_x_description"
+  "geometry_msgs"
+  "nav_msgs"
+  "control_msgs"
+  "sensor_msgs"
+  "std_srvs"
+  "rclcpp_action"
+  "moveit_msgs"
+  "rclcpp_components"
+)
+
 install(TARGETS open_manipulator_x_teleop
+  DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS open_manipulator_x_joystick
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
